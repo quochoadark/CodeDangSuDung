@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unknown</title>
+    <!-- CSS variable
+        + Tao 1 bien root va lay nhung thu ben trong de su dung 
+        + Co 2 dang global va local 
+        + Global thi ghi trong bien root con local thi ghi trong tag cua chinh no 
+    -->
+    <style>       
+        :root{
+            --text-color: red;
+        }
+        h1{
+            color: var(--text-color); 
+        }
+        h2{
+            --my-color: blue;
+            color: var(--my-color);
+        }
+    </style>
+
+    <!-- CSS Unit: Các đơn vị 
+    + px 
+    + % 
+    + Rem: la thuoc tinh phu thuoc vao chi so cua the html VD: o the html co font-size la 40px thi 1 rem la 40px
+    + Em: la thuoc tinh phu thuoc vao the gan nhat chua no co font-size
+    + vw: width  (1 vh,vw bằng 1 phần chiều cao / rộng khung hình)
+    + vh: height
+    -->
+
+    <!-- Thuoc tinh padding border margin 
+        + Padding: Khoảng cách từ chữ bên trong đến đường viền 
+        + Border: đường viền 
+        + Margin: khoảng cách từ đường viền đến bên ngoài 
+
+        + Padding-top: top
+        + Padding-left: left 
+        + Padding-right: right 
+        + Padding-bottom: bottom 
+        + Padding: top right bottom left 
+        
+        + Border-width: chieu rong cua border 
+        + Border-top-width: o tren 
+        + Border-right-width: ben phai 
+        + Border-left-width: ben trai
+        + Border-bottom-width: o giua 
+        + Border-style: kieu cua duong vien
+        + Border-color: mau sac cua border 
+        + Shorthand: Viet ngan cua 3 cai tren 
+        - Border: 10px solid black     
+
+        + Margin: 4 huong giong voi padding 
+    -->
+
+    <!-- CSS Box-sizing: 
+         + Co the tuy chinh kich thuoc da bao gom padding va border hoac ko bao gom (lam cho chu gon hon),
+         + Neu lon qua thi se ko hieu qua 
+         + box-sizing: border-box  (y nghia o tren)
+         + box-sizing: content-box (tro ve nhu cu (default))
+         + box-sizing: unset (huy di boxsizing) thuong su dung trong nhung truong hop sua website da code roi 
+         -->
+
+    <!-- Background-clip: Đổ màu background từ noi nay den noi khac (VD: tu border đến padding hoặc content)
+        background-clip: padding-box (Đổ từ padding vào content)
+        background-clip: border-box (Đổ từ border vào content)
+        background-clip: content-box (Đổ từ content)
+    -->
+
+    <!-- Background image 
+        background-size: 100px (chieu rong x chieu cao): dung 1 minh thi la chieu rong con chieu cao tu can chinh (Co the dung auto de tu dong)
+        background-repeat: repeat (ko lap anh) (repeat-x va y là theo truc hoanh va tung)
+        background-size: contain  No se lay kich thuoc chieu rong hoac chieu cao dat nhat cua buc anh
+        background-size: cover  No se lay kich thuoc width hoac height dai hon cua buc anh nhung che khuat 1 phan cua buc anh
+    -->
+    <!-- Background-origin: cung giong nhu background-clip nhung di kem voi background image -->
+    <!-- Background-position: vi tri 
+         --- Nen ghi 2 gia tri. Neu 1 gia tri thi gia tri con lai la center / (top 20px right 20px) 
+         --- Co the su dung px (20px(ngang) 50px (doc)) 
+    -->
+    <style>
+        .header{
+            width: 100%;
+            height: 100vh;
+            background-image: url(https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNGt7FlZ3Al1qFNNsFTkvJNcQ90A1vxp2E2Q&s);
+            background-size: 200px;  /* px % auto */
+            background-repeat: no-repeat;   
+            border: 20px dashed #ccc;
+            padding: 20px;
+            box-sizing: border-box;
+            background-origin: content-box;
+            background-position: center right;  /* Nen ghi 2 gia tri. Neu 1 gia tri thi gia tri con lai la center / (top 20px right 20px)*/
+            /* Shorthand
+                background: url no repeat center/contain ;
+            */
+        }
+    </style>
+    <!-- Ôn lại các dạng màu-->
+    <!-- CSS function: 
+        + calc:  VD: width: calc (+ - * /)
+        + Attr: thường sử dụng với lớp giả. Nó sẽ giúp cập nhật lại khi thay đổi nội dung
+    -->
+    <style>
+        a::after{
+            content: "(" attr(href) ")";
+        }
+    </style>
+    <!-- CSS Pseudo classes(Lớp giả) và pseudo elements (Phần từ giả): 
+        :root: hiển thị đến thành phần gốc của văn bản (Toàn bộ sẽ bị css theo bên trong root)
+        :hover: Di chuột qua sẽ có màu 
+        :active: Khi bấm chuột vào sẽ đổi màu 
+        :first-child: Lấy cái đầu tiên 
+        :last-child: lấy cái cuối cùng 
+
+        ::before: Tạo phần tử trước 
+        ::after: Tạo phần tử sau phần trước
+        ::selection: Khi ấn vào và kéo lên, kéo xuống thì sẽ hiện màu 
+        ::first-letter: 
+        ::first-line: 
+
+        Nên tìm hiểu thêm 
+    -->  
+
+    <!-- CSS position: vị trí
+        + Position: relative (Vi tri tuong doi).
+        - Nó sẽ lấy chính nó làm góc tọa độ. Phải có nó trước thì mới di chuyển được 4 bên. Nó sẽ đè lên chữ khác 
+
+        + Position: absolute (Vi tri tuyet doi).
+        - Nó sẽ lấy 1 thẻ cha (có position) bất kỳ bên ngoài để làm góc tọa độ (Thẻ bên ngoài nên có position: relative).
+        - Thường được sử dụng để làm menu
+
+        + Position: fixed (cố định vị trí) 
+    -->
+</head>
+<body>
+    <!-- CSS variable-->
+    <h1>Xin chao cac ban lan 1 </h1>
+    <h2>Xin chao cac ban lan 2 </h2>
+
+    <!-- Background image -->
+     <div class = "header"></div>
+
+    <!-- Attr-->
+     <a href="https://fullstack.edu.vn">Ấn vào đi</a>
+
+     <h3>Xin chao cac ban lan 1 </h3>
+     <h4>Xin chao cac ban lan 2 </h4>
+
+     <li>đâsd</li>
+     <li>đâsd</li>
+     <li>đâs</li>
+     <li>dsadas</li>
+     
+</body>
+</html>
