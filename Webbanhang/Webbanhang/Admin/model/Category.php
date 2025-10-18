@@ -1,6 +1,6 @@
 <?php
 // File: Admin/model/Category.php
-require_once __DIR__ . '/../../Database/database.php'; 
+require_once __DIR__ . '/../../Database/Database.php'; 
 
 class Category{
     private $conn;

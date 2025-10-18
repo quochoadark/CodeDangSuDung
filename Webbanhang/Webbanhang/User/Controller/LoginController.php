@@ -1,97 +1,209 @@
 <?php
-// Tên file: /Webbanhang/User/Controller/LoginController.php (Controller Khách hàng)
+// File: /Webbanhang/User/Controller/LoginController.php (ĐÃ SỬA LỖI LOGIC CHUYỂN HƯỚNG VÀ LOAD VIEW)
 
-// Khởi động session nếu chưa có, ngăn lỗi session_start() đã chạy
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Nạp các file cần thiết
+require_once __DIR__ . '/../Service/LoginService.php'; 
+require_once __DIR__ . '/../Repository/LoginRepository.php';
+require_once __DIR__ . '/../../Database/database.php'; 
 
-// ⭐ 1. NHÚNG MODEL KHÁCH HÀNG: Sửa từ 'Login.php' sang 'User.php'
-require_once __DIR__ . '/../Model/Login.php'; 
+class LoginController
+{
+    private $loginService;
+    private $user_root = '/Webbanhang/User/'; 
 
-class LoginController {
-    
-    // Đổi tên biến model để dễ quản lý
-    private $userModel;
-
-    public function __construct() {
-        // Đường dẫn đến Database: Giả sử database.php nằm ở /Webbanhang/Database/
-        // Nếu Controller nằm ở /Webbanhang/User/Controller/, ta cần lùi 2 cấp (../..).
-        // Tuy nhiên, dựa trên các file trước, ta dùng đường dẫn tương đối theo cấu trúc đã sửa.
-        require_once __DIR__ . '/../../Database/database.php'; 
+    public function __construct()
+    {
+        // 1. Khởi động session nếu chưa có (Dù Service đã có, Controller cũng nên đảm bảo)
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
-        // 1. Tạo đối tượng từ class database
-        $db = new database(); 
-        
-        // 2. Lấy biến kết nối công khai $conn từ đối tượng $db (Đúng theo cách bạn muốn dùng)
-        // Nếu dòng này vẫn lỗi, hãy kiểm tra chắc chắn class database của bạn có biến public $conn.
-        $conn = $db->conn;     
+        $db = new Database();
+        $conn = $db->conn;
 
-        // Kiểm tra lỗi kết nối 
         if ($conn->connect_error) {
-             die("Lỗi kết nối CSDL: Không thể tạo đối tượng kết nối hợp lệ.");
+            die("Lỗi kết nối CSDL: " . $conn->connect_error);
         }
-        
-        // ⭐ 2. KHỞI TẠO MODEL: Sửa từ 'new Login($conn)' sang 'new User($conn)'
-        $this->userModel = new Login($conn); 
-    }
 
-    public function handleRequest() {
-        $login_error = "";
+        $userRepository = new LoginRepository($conn); 
+        $this->loginService = new LoginService($userRepository);
         
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->processLogin();
-        } else {
-            // Lấy lỗi từ session (nếu có) trước khi tải View
-            if (isset($_SESSION['login_error'])) {
-                $login_error = $_SESSION['login_error'];
-                unset($_SESSION['login_error']);
-            }
-            $this->loadView($login_error);
+        // 2. KIỂM TRA REMEMBER ME (Service sẽ thực hiện logic, Controller chịu trách nhiệm chuyển hướng nếu thành công)
+        $redirect_to_index = $this->loginService->checkRememberMeAndLogin();
+        
+        if ($redirect_to_index === true) {
+            header("Location: {$this->user_root}index.php");
+            exit();
         }
     }
+    
+    /**
+     * Hàm xử lý chung: Điều phối các yêu cầu Đăng nhập và Quên mật khẩu.
+     */
+    public function handleRequest()
+    {
+        // 1. Kiểm tra trạng thái đăng nhập (sau khi đã kiểm tra Remember Me ở __construct)
+        if ($this->loginService->isLoggedInBySession()) { 
+             header("Location: {$this->user_root}index.php");
+             exit();
+        }
+        
+        // 2. Lấy hành động được yêu cầu (từ GET/URL hoặc POST/Form)
+        $action = $_REQUEST['action'] ?? null;
 
-    private function processLogin() {
+        switch ($action) {
+            case 'forgot_password_view':
+            case 'request_reset': // Xử lý POST của form Quên Mật khẩu
+                $this->handleForgotPasswordRequest();
+                break;
+            case 'reset_password_view':
+            case 'reset_password': // Xử lý POST của form Đặt lại Mật khẩu
+                $this->handleResetPasswordRequest();
+                break;
+            default:
+                // Xử lý Đăng nhập mặc định (POST cho form login, GET cho view login)
+                if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                    $this->processLogin();
+                } else {
+                    // SỬA LỖI LOGIC: View Login nằm trong View/Entry.php (tôi giả định)
+                    $this->loadView('Login'); 
+                }
+                break;
+        }
+    }
+    
+    // ⭐ PHƯƠNG THỨC ĐĂNG NHẬP
+    private function processLogin()
+    {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
+        $remember_me = isset($_POST['remember_me']); 
 
-        // Giả sử Model User có phương thức authenticate($email) hoặc getUserByEmail($email)
-        $row = $this->userModel->getUserByEmail($email);
-        
-        if ($row) {
-            // Kiểm tra mật khẩu (đã mã hóa bằng bcrypt)
-            if (password_verify($password, $row['matkhau'])) {
-                // Đăng nhập thành công
+        // Gọi Service, Service chỉ trả về TRUE/FALSE, KHÔNG CHUYỂN HƯỚNG
+        $success = $this->loginService->processLogin($email, $password, $remember_me);
 
-                $_SESSION['is_logged_in'] = true;
-                $_SESSION['user_id'] = $row['user_id']; // ID khách hàng
-                $_SESSION['hoten'] = $row['hoten']; 
-                
-                // ⭐ 3. BỎ PHÂN QUYỀN: Khách hàng luôn có role là 'khachhang' (hoặc không cần role nếu không cần kiểm tra trong Navbar)
-                $_SESSION['role'] = 'khachhang';
-                
-                // ⭐ 4. CHUYỂN HƯỚNG ĐẾN 1 TRANG DUY NHẤT
-                header("Location: /Webbanhang/User/index.php"); 
-                exit();
-            }
-        } 
-
-        // Xử lý thất bại (không tìm thấy user hoặc mật khẩu sai)
-        $_SESSION['login_error'] = "Tên đăng nhập hoặc mật khẩu không đúng.";
-        
-        // Chuyển hướng về View đăng nhập qua Entry Point
-        header("Location: /Webbanhang/User/View/Entry.php"); 
-        exit();
+        if ($success) {
+            // Đăng nhập thành công, Controller chuyển hướng
+            header("Location: {$this->user_root}index.php"); 
+            exit();
+        } else {
+            // Đăng nhập thất bại
+            $_SESSION['login_error'] = "Tên đăng nhập hoặc mật khẩu không đúng.";
+            // ĐẢM BẢO CHUYỂN HƯỚNG VỀ ENTRY POINT
+            header("Location: {$this->user_root}View/Entry.php"); 
+            exit();
+        }
     }
-    
-    private function loadView($login_error) {
-        // Truyền biến $login_error vào View
-        $viewPath = __DIR__ . '/../view/Login.php'; 
+
+    /**
+     * Hàm tải View (Login, ForgotPassword, ResetPassword)
+     * @param string $viewName Tên View (Ví dụ: 'Login', 'ForgotPassword')
+     */
+    private function loadView(string $viewName)
+    {
+        $login_error = '';
+        $message = '';
+
+        // Lấy thông báo lỗi/thành công từ Session (Nếu có)
+        if (isset($_SESSION['login_error'])) {
+            $login_error = $_SESSION['login_error'];
+            unset($_SESSION['login_error']);
+        }
+        if (isset($_SESSION['success_message'])) {
+            $message = $_SESSION['success_message'];
+            unset($_SESSION['success_message']);
+        }
+        if (isset($_SESSION['error_message'])) {
+            $login_error = $_SESSION['error_message'];
+            unset($_SESSION['error_message']);
+        }
+
+        $viewPath = __DIR__ . "/../View/{$viewName}.php"; 
         
         if (file_exists($viewPath)) {
-            require_once $viewPath; 
+            // Include View, trong đó có thể sử dụng biến $login_error và $message
+            require_once $viewPath;
         } else {
-            die("Lỗi: Không tìm thấy View Login tại đường dẫn $viewPath");
+            die("Không tìm thấy View: " . $viewPath);
         }
+    }
+    
+    // =========================================================
+    // PHƯƠNG THỨC MỚI: XỬ LÝ LUỒNG QUÊN MẬT KHẨU
+    // =========================================================
+
+    /**
+     * Tải và xử lý form yêu cầu gửi email đặt lại mật khẩu.
+     */
+    public function handleForgotPasswordRequest()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'request_reset') {
+            $email = trim($_POST['email'] ?? '');
+
+            if (empty($email)) {
+                $_SESSION['error_message'] = "Vui lòng nhập email.";
+            } else {
+                $result = $this->loginService->requestPasswordReset($email);
+
+                // Dựa vào chuỗi trả về để quyết định thông báo
+                if (str_contains($result, 'Lỗi') || str_contains($result, 'hệ thống') || str_contains($result, 'SMTP')) {
+                    $_SESSION['error_message'] = $result;
+                } else {
+                    $_SESSION['success_message'] = $result;
+                }
+            }
+
+            // Sau khi xử lý xong, luôn chuyển hướng về Entry Point của ForgotPassword View
+            header("Location: {$this->user_root}View/ForgotPassword.php");
+            exit();
+        }
+
+        // Khi load trang (GET), tải View và hiển thị thông báo
+        $this->loadView('ForgotPassword');
+    }
+
+    /**
+     * Tải form đặt lại mật khẩu và xử lý việc đặt lại.
+     */
+    public function handleResetPasswordRequest()
+    {
+        $token = trim($_REQUEST['token'] ?? ''); 
+
+        // 1. Xác thực Token (cả GET/POST đều cần check)
+        $user_or_error = $this->loginService->validateResetToken($token);
+        
+        if (is_string($user_or_error)) {
+            // Token không hợp lệ hoặc hết hạn. Lưu lỗi vào session và chuyển hướng về trang ResetPassword
+            $_SESSION['error_message'] = $user_or_error;
+            $this->loadView('ResetPassword');
+            return;
+        }
+        
+        $user = $user_or_error; // Lấy Model User
+        
+        // 2. Xử lý POST (Đặt lại mật khẩu)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset_password') {
+            $new_password = $_POST['new_password'] ?? '';
+            $confirm_password = $_POST['confirm_password'] ?? '';
+
+            $result = $this->loginService->resetPassword($user, $new_password, $confirm_password);
+            
+            if ($result === true) {
+                // Đặt lại thành công
+                $_SESSION['login_error'] = "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập.";
+                header("Location: {$this->user_root}View/Entry.php");
+                exit();
+            } else {
+                // Đặt lại thất bại
+                $_SESSION['error_message'] = $result; // Thông báo lỗi từ Service
+            }
+            
+            // Chuyển hướng POST sang GET để tránh resubmit form
+            header("Location: {$this->user_root}View/ResetPassword.php?action=reset_password_view&token={$token}");
+            exit();
+        }
+        
+        // 3. Tải view ResetPassword (Khi là GET ban đầu)
+        $this->loadView('ResetPassword');
     }
 }

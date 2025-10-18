@@ -1,6 +1,6 @@
 <?php 
 // File: Admin/Controller/CategoryController.php
-require_once __DIR__ . '/../../Database/database.php'; 
+require_once __DIR__ . '/../../Database/Database.php'; 
 require_once __DIR__ . '/../model/Category.php'; 
 
 class CategoryController {
@@ -8,8 +8,8 @@ class CategoryController {
     private $categoryModel;
 
     public function __construct() {
-        $database = new Database();
-        $this->db = $database->conn;
+        $Database = new Database();
+        $this->db = $Database->conn;
         $this->categoryModel = new Category($this->db);
     }
     

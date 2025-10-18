@@ -1,10 +1,10 @@
 <?php
 // 📁 File: register.php
-require_once '../../Database/database.php';
+require_once '../../Database/Database.php';
 require_once '../Controller/RegisterUserController.php';
 
 // Khởi tạo Controller
-$db = new database();
+$db = new Database();
 $conn = $db->conn;
 
 $controller = new RegisterUserController($conn);
@@ -20,11 +20,10 @@ $conn->close();
   <meta charset="UTF-8">
   <title>Đăng ký tài khoản</title>
 
-  <!-- Bootstrap & FontAwesome -->
+  <!-- Bootstrap & Font Awesome -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- jQuery & Bootstrap JS -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -37,11 +36,17 @@ $conn->close();
       const matkhau = form["matkhau"].value.trim();
       const dienthoai = form["dienthoai"].value.trim();
       const diachi = form["diachi"].value.trim();
+
       let errorMessage = "";
+      const onlyNumbersRegex = /^\d+$/; // Regex kiểm tra chuỗi CHỈ TOÀN SỐ
 
       // Kiểm tra các trường bắt buộc
       if (!hoten || !email || !matkhau || !dienthoai || !diachi) {
         errorMessage = "Vui lòng điền đầy đủ tất cả các trường!";
+      }
+      // Kiểm tra Họ và Tên không được chỉ chứa toàn số
+      else if (onlyNumbersRegex.test(hoten)) {
+        errorMessage = "Họ và Tên không được chỉ chứa toàn số!";
       }
       // Kiểm tra email hợp lệ
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -54,6 +59,12 @@ $conn->close();
       // Kiểm tra định dạng số điện thoại
       else if (!/^(0[0-9]{9,10})$/.test(dienthoai)) {
         errorMessage = "Số điện thoại không hợp lệ (ví dụ: 0901234567)!";
+      }
+      // Kiểm tra địa chỉ
+      else if (diachi.length < 10) {
+        errorMessage = "Địa chỉ quá ngắn (tối thiểu 10 ký tự). Vui lòng nhập chi tiết.";
+      } else if (onlyNumbersRegex.test(diachi)) {
+        errorMessage = "Địa chỉ không được chỉ chứa toàn số. Vui lòng nhập chi tiết.";
       }
 
       if (errorMessage) {
@@ -78,12 +89,14 @@ $conn->close();
             <form name="registerForm" method="POST" action="" onsubmit="return validateForm();" novalidate>
               <div class="mb-3">
                 <label class="form-label">Họ và tên</label>
-                <input type="text" name="hoten" class="form-control" required>
+                <input type="text" name="hoten" class="form-control" required
+                       value="<?php echo htmlspecialchars($_POST['hoten'] ?? ''); ?>">
               </div>
 
               <div class="mb-3">
                 <label class="form-label">Email</label>
-                <input type="email" name="email" class="form-control" required>
+                <input type="email" name="email" class="form-control" required
+                       value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
               </div>
 
               <div class="mb-3">
@@ -93,12 +106,14 @@ $conn->close();
 
               <div class="mb-3">
                 <label class="form-label">Điện thoại</label>
-                <input type="text" name="dienthoai" class="form-control" required>
+                <input type="text" name="dienthoai" class="form-control" required
+                       value="<?php echo htmlspecialchars($_POST['dienthoai'] ?? ''); ?>">
               </div>
 
               <div class="mb-3">
                 <label class="form-label">Địa chỉ</label>
-                <input type="text" name="diachi" class="form-control" required>
+                <input type="text" name="diachi" class="form-control" required
+                       value="<?php echo htmlspecialchars($_POST['diachi'] ?? ''); ?>">
               </div>
 
               <button type="submit" class="btn btn-primary w-100">Đăng ký</button>
@@ -113,7 +128,7 @@ $conn->close();
     </div>
   </div>
 
-  <!-- ✅ Modal Thành công -->
+  <!-- Modal: Thành công -->
   <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -124,6 +139,7 @@ $conn->close();
         <div class="modal-body text-center">
           <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
           <h4 class="mt-3">Đăng ký thành công!</h4>
+          <p class="mt-2">Bạn sẽ được chuyển đến trang Đăng nhập sau 3 giây.</p>
         </div>
         <div class="modal-footer justify-content-center">
           <a href="Login.php" class="btn btn-primary">Đăng nhập ngay</a>
@@ -132,7 +148,7 @@ $conn->close();
     </div>
   </div>
 
-  <!-- ❌ Modal Lỗi Server -->
+  <!-- Modal: Lỗi server -->
   <div class="modal fade" id="serverErrorModal" tabindex="-1" aria-labelledby="serverErrorModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -154,7 +170,7 @@ $conn->close();
     </div>
   </div>
 
-  <!-- ⚠️ Modal Lỗi Client -->
+  <!-- Modal: Lỗi client -->
   <div class="modal fade" id="clientErrorModal" tabindex="-1" aria-labelledby="clientErrorModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -174,10 +190,14 @@ $conn->close();
     </div>
   </div>
 
+  <!-- Script: Hiển thị modal kết quả -->
   <script>
     $(document).ready(function() {
       <?php if ($controller->registration_success): ?>
         $('#successModal').modal('show');
+        setTimeout(function() {
+          window.location.href = 'Login.php';
+        }, 3000); // Chuyển sau 3 giây
       <?php elseif (!empty($controller->error_message)): ?>
         $('#serverErrorModal').modal('show');
       <?php endif; ?>

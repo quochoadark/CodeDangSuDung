@@ -1,5 +1,5 @@
 <?php
-class database {
+class Database {
     private $host = "localhost";
     private $username = "root";
     private $password = "Hoa01218816812";
@@ -18,6 +18,11 @@ class database {
 
         if ($this->conn->connect_error) {
             die("Kết nối thất bại: " . $this->conn->connect_error);
+        }
+    }
+     public function closeConnection() {
+        if ($this->conn) {
+            $this->conn->close();
         }
     }
 }

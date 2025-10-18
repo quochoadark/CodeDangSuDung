@@ -2,38 +2,32 @@
 // File: Admin/Controllers/ProductController.php
 
 // Đường dẫn này phải đúng, nếu không sẽ bị lỗi Not Found Class
-require_once __DIR__ . '/../../Database/database.php'; 
+require_once __DIR__ . '/../../Database/Database.php'; 
 require_once __DIR__ . '/../model/Product.php'; 
 
 class ProductController {
     private $db;
     private $productModel;
-    private $uploadDir; // Thêm thuộc tính để lưu thư mục upload
+    private $uploadDir; 
 
     public function __construct() {
-    // Tạo kết nối Database (đã định nghĩa trong database.php)
-    $database = new Database();
-    $this->db = $database->conn;
+    // Tạo kết nối Database (đã định nghĩa trong Database.php)
+    $Database = new Database();
+    $this->db = $Database->conn;
 
     // Khởi tạo Product Model
     $this->productModel = new Product($this->db); 
     
-    // Sửa lỗi đường dẫn: 
-    // Giả định thư mục 'uploads' nằm ở thư mục gốc của dự án (cao hơn một cấp)
-    // dirname(__DIR__) sẽ đi lên một cấp.
+    // Đường dẫn thư mục uploads
     $uploadPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . "uploads" . DIRECTORY_SEPARATOR;
-    
-    // Gán đường dẫn đã chuẩn hóa
     $this->uploadDir = $uploadPath;
 
-    // Logic kiểm tra và tạo thư mục vẫn ĐÚNG (chỉ tạo nếu chưa tồn tại)
-    // Nếu thư mục đã có, nó sẽ bỏ qua bước này.
     if (!is_dir($this->uploadDir)) { 
         mkdir($this->uploadDir, 0777, true); 
     }
 } 
 
-    // --- Hỗ trợ: Lấy danh sách danh mục (cho Form Add/Update) ---
+    // --- Hỗ trợ: Lấy danh sách danh mục ---
     private function getCategories() {
         $danhmuc_result = $this->db->query("SELECT category_id, tendanhmuc FROM danhmucsanpham");
         
@@ -47,7 +41,6 @@ class ProductController {
     // --- Hỗ trợ: Xử lý Upload và kiểm tra file ---
     private function handleImageUpload($currentImg = null) {
         if (!isset($_FILES['img']) || $_FILES['img']['error'] !== UPLOAD_ERR_OK) {
-            // Không có file mới hoặc lỗi upload (chấp nhận nếu đang sửa và không up ảnh mới)
             return $currentImg;
         }
 
@@ -84,14 +77,12 @@ class ProductController {
 
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             try {
-                // Gán dữ liệu từ form vào model
                 $this->productModel->setTenSanPham($_POST["tensanpham"] ?? '');
                 $this->productModel->setCategoryId(intval($_POST["category_id"] ?? 0));
                 $this->productModel->setGia(floatval($_POST["gia"] ?? 0));
                 $this->productModel->setTonKho(intval($_POST["tonkho"] ?? 0));
                 $this->productModel->setMoTa($_POST["mota"] ?? '');
                 
-                // Kiểm tra và Upload Ảnh (currentImg = null vì là thêm mới)
                 $imgPath = $this->handleImageUpload(null);
 
                 if (empty($imgPath)) {
@@ -100,7 +91,6 @@ class ProductController {
 
                 $this->productModel->setImg($imgPath);
                 
-                // Gọi Model để lưu vào DB
                 if ($this->productModel->save()) {
                     header("Location: /Webbanhang/Admin/index.php?page=sanpham&add_success=1"); 
                     exit(); 
@@ -110,8 +100,8 @@ class ProductController {
 
             } catch (Exception $e) {
                 $data['error_message'] = $e->getMessage();
-                $data['product_data'] = $_POST; // Giữ lại dữ liệu đã nhập
-            }   
+                $data['product_data'] = $_POST; 
+            } 
         }
         
         return $data;
@@ -123,7 +113,6 @@ class ProductController {
         $product_data = null;
         $error_message = null;
         
-        // --- A. Lấy dữ liệu sản phẩm hiện tại (GET request) ---
         if ($id > 0) {
             $product_data = $this->productModel->find($id); 
             if (!$product_data) {
@@ -133,33 +122,24 @@ class ProductController {
             $error_message = "Thiếu ID sản phẩm.";
         }
         
-        // --- B. Xử lý khi Submit form (POST request) ---
         if ($_SERVER["REQUEST_METHOD"] == "POST" && $id > 0) {
             try {
-                // Lấy ảnh cũ trước khi gán dữ liệu POST
                 $currentImg = $product_data['img'] ?? null; 
 
-                // Set lại ID cho model (QUAN TRỌNG CHO UPDATE)
                 $this->productModel->product_id = $id; 
 
-                // Gán dữ liệu mới từ form
                 $this->productModel->setTenSanPham($_POST["tensanpham"] ?? '');
                 $this->productModel->setCategoryId(intval($_POST["category_id"] ?? 0));
                 $this->productModel->setGia(floatval($_POST["gia"] ?? 0));
                 $this->productModel->setTonKho(intval($_POST["tonkho"] ?? 0));
                 $this->productModel->setMoTa($_POST["mota"] ?? '');
                 
-                // Xử lý Upload Ảnh (truyền ảnh cũ để hàm xử lý xóa)
-                // Hàm handleImageUpload sẽ trả về tên ảnh mới hoặc ảnh cũ.
                 $imgPath = $this->handleImageUpload($currentImg);
                 $this->productModel->setImg($imgPath);
 
-                // Gán lại dữ liệu đã POST vào $product_data để hiển thị lại form nếu có lỗi
                 $product_data = array_merge($product_data ?? [], $_POST); 
-                $product_data['img'] = $imgPath; // Cập nhật tên ảnh trong dữ liệu hiển thị
+                $product_data['img'] = $imgPath; 
 
-                // Gọi Model để update
-                // LƯU Ý: Đảm bảo đã định nghĩa Product::update()
                 if ($this->productModel->update()) { 
                     header("Location: /Webbanhang/Admin/index.php?page=sanpham&update_success=1"); 
                     exit(); 
@@ -169,7 +149,6 @@ class ProductController {
 
             } catch (Exception $e) {
                 $error_message = $e->getMessage();
-                // Giữ lại dữ liệu đã POST để điền vào form
                 $product_data = array_merge($product_data ?? [], $_POST);
             }
         }
@@ -183,19 +162,15 @@ class ProductController {
     
     // --- 3. Hiển thị Danh sách (READ/INDEX) ---
     public function index() {
-        // 1. Cấu hình Phân trang
         $limit = 8;
         $page = isset($_GET['p']) ? (int)$_GET['p'] : 1;
         $offset = ($page - 1) * $limit;
 
-        // 2. Lấy tổng số bản ghi (từ Model)
         $total_records = $this->productModel->getTotalRecords();
         $total_pages = ceil($total_records / $limit);
 
-        // 3. Lấy dữ liệu sản phẩm (từ Model)
         $products_result = $this->productModel->readAll($limit, $offset); 
 
-        // 4. Trả về dữ liệu cho View
         return [
             'products' => $products_result, 
             'total_pages' => $total_pages,
@@ -204,33 +179,44 @@ class ProductController {
         ];
     }
     
-    // --- 4. Xử lý Yêu cầu (Handle Request) ---
+    // --- 4. Xử lý Yêu cầu (Handle Request) - ĐÃ SỬA LOGIC XÓA ---
     public function handleRequest() {
         
         // --- A. XỬ LÝ YÊU CẦU XÓA (DELETE) ---
         if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id'])) {
             $product_id = (int)$_GET['id'];
-            
-            // LƯU Ý: Hàm delete() phải được định nghĩa trong Model (Product.php)
-            if ($this->productModel->delete($product_id)) {
-                // Xóa thành công
-                header("Location: /Webbanhang/Admin/index.php?page=sanpham&delete_success=1"); 
+            $delete_success = false;
+
+            // KIỂM TRA LOGIC NGHIỆP VỤ: Sản phẩm đã có trong đơn hàng nào chưa?
+            if ($this->productModel->hasRelatedOrders($product_id)) {
+                // CÓ đơn hàng -> BẮT BUỘC XÓA MỀM (Soft Delete)
+                $delete_success = $this->productModel->delete($product_id); 
+                $message = "Sản phẩm đã được ẩn (Soft Delete) do có dữ liệu đơn hàng liên quan.";
+
+            } else {
+                // CHƯA CÓ đơn hàng -> XÓA CỨNG (Hard Delete)
+                $delete_success = $this->productModel->hardDelete($product_id); 
+                $message = "Sản phẩm đã được xóa vĩnh viễn khỏi Database.";
+            }
+
+            if ($delete_success) {
+                // Chuyển hướng với thông báo chi tiết
+                header("Location: /Webbanhang/Admin/index.php?page=sanpham&delete_success=1&msg=" . urlencode($message)); 
                 exit(); 
             } else {
-                 // Xóa thất bại
-                
-                // 1. Xử lý URL (Đơn giản hóa)
-                $redirect_url = "/Webbanhang/Admin/index.php?page=sanpham" . 
-                                "&error_message=" . urlencode("Không thể xóa sản phẩm. Có thể sản phẩm đang có trong đơn hàng.");
-                
-                // 2. Chuyển hướng
-                header("Location: " . $redirect_url);
-                exit(); 
+                 $redirect_url = "/Webbanhang/Admin/index.php?page=sanpham" . 
+                                 "&error_message=" . urlencode("Không thể xóa sản phẩm. Lỗi hệ thống hoặc sản phẩm không tồn tại.");
+                 header("Location: " . $redirect_url);
+                 exit(); 
             }
         }
         
-        // --- B. HIỂN THỊ DANH SÁCH (READ/INDEX) ---
+        // --- B. HIỂN THỊ DANH SÁCH (READ/INDEX) / Các action khác ---
+        if (isset($_GET['action'])) {
+            if ($_GET['action'] == 'create') { return $this->create(); }
+            if ($_GET['action'] == 'edit') { return $this->edit(); }
+        }
+        
         return $this->index(); 
     }
 }
-?>

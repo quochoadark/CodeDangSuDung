@@ -1,95 +1,221 @@
 <?php
-// Tên file: /Webbanhang/Admin/Controller/LoginController.php
+// File: /Webbanhang/Admin/Controller/LoginController.php (ĐÃ SỬA VÀ LOẠI BỎ indexStaff)
 
-// Khởi động session nếu chưa có, ngăn lỗi session_start() đã chạy
+// 1. Khởi động session nếu chưa có
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Nhúng Model: File này cần được nhúng ở đây.
-require_once __DIR__ . '/../model/Login.php'; 
+// 2. Nạp Model
+require_once __DIR__ . '/../Model/Login.php';
+require_once __DIR__ . '/../../Database/Database.php'; // Nạp DB
 
-class LoginController {
-    
-    private $staffModel;
+class LoginController
+{
+    private $loginModel;
+    private $cookie_name = 'ad_remember_token'; 
+    private $admin_root = '/Webbanhang/Admin/';
+    // ⭐ ĐIỀU CHỈNH: Chỉ còn 1 trang đích duy nhất cho Admin
+    private const ADMIN_DASHBOARD = 'index.php'; 
 
-    public function __construct() {
-        // Đường dẫn từ Controller (/Admin/Controller/) lùi 2 cấp (đến /WEBBANHANG/) rồi vào Database/
-        require_once __DIR__ . '/../../Database/database.php'; 
-        
-        // 1. Tạo đối tượng từ class database
-        $db = new database(); 
-        // 2. Lấy biến kết nối công khai $conn từ đối tượng $db
-        $conn = $db->conn;      
+    public function __construct()
+    {
+        // Nạp kết nối CSDL
+        $db = new Database();
+        $conn = $db->conn;
 
-        // Kiểm tra lỗi kết nối 
         if ($conn->connect_error) {
-             die("Lỗi kết nối CSDL: Không thể tạo đối tượng kết nối hợp lệ.");
+            die("Lỗi kết nối CSDL: " . $conn->connect_error);
         }
+
+        // Khởi tạo model
+        $this->loginModel = new Login($conn);
         
-        // Khởi tạo Model với kết nối DB
-        $this->staffModel = new Login($conn); 
+        // KIỂM TRA REMEMBER ME ngay khi khởi tạo Controller
+        $this->checkRememberMe();
     }
-
-    public function handleRequest() {
-        // ⭐ Đảm bảo biến lỗi luôn được khởi tạo
-        $login_error = "";
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->processLogin();
-        } else {
-            // Lấy lỗi từ session (nếu có) trước khi tải View
-            if (isset($_SESSION['login_error'])) {
-                $login_error = $_SESSION['login_error'];
-                unset($_SESSION['login_error']); // Xóa lỗi sau khi đã lấy để không hiển thị lại
-            }
-            $this->loadView($login_error); // Truyền biến lỗi vào View
-        }
-    }
-
-    private function processLogin() {
-        $email = trim($_POST['email']);
-        $password = $_POST['password'];
-
-        $row = $this->staffModel->getStaffByEmail($email);
-        
-        if ($row) {
-            // Kiểm tra mật khẩu (đã mã hóa bằng bcrypt)
-            if (password_verify($password, $row['matkhau'])) {
-                // Đăng nhập thành công
-                $_SESSION['user_id'] = $row['staff_id'];
-                $_SESSION['hoten'] = $row['hoten']; 
-                $_SESSION['role_id'] = $row['id_chucvu']; 
-
-                $role_id = $row['id_chucvu'];
-                
-                // PHÂN QUYỀN VÀ CHUYỂN HƯỚNG
-                if ($role_id == 2) { // Admin
-                    $_SESSION['role_name'] = 'admin';
-                    header("Location: /Webbanhang/Admin/index.php"); 
-                    exit();
-                } else if ($role_id == 1) { // Nhân viên bán hàng
-                    $_SESSION['role_name'] = 'nhanvien';
-                    header("Location: /Webbanhang/Admin/indexStaff.php"); 
-                    exit();
-                } else {
-                    $_SESSION['login_error'] = "Tài khoản không có quyền truy cập phù hợp.";
-                }
-            }
-        } 
-
-        // Xử lý thất bại (không tìm thấy user, mật khẩu sai, hoặc lỗi phân quyền)
-        if (!isset($_SESSION['login_error'])) {
-             $_SESSION['login_error'] = "Tên đăng nhập hoặc mật khẩu không đúng.";
-        }
-        
-        // Chuyển hướng về View đăng nhập qua Entry Point
-        header("Location: /Webbanhang/Admin/view/Entry.php"); // ⭐ Đảm bảo đường dẫn này trỏ đến file chạy Controller
+    
+    /**
+     * ⭐ HÀM CHUYỂN HƯỚNG: Luôn chuyển hướng đến trang Admin (index.php)
+     */
+    private function redirectToDashboard()
+    {
+        // Chuyển hướng đến /Webbanhang/Admin/index.php
+        header("Location: {$this->admin_root}" . self::ADMIN_DASHBOARD);
         exit();
     }
     
-    private function loadView($login_error) {
-        // Biến $login_error đã được truyền vào phạm vi này
-        require_once __DIR__ . '/../view/Login.php'; 
+    /**
+     * Kiểm tra cookie Remember Me và tự động đăng nhập nếu hợp lệ
+     */
+    private function checkRememberMe()
+    {
+        // 1. Nếu đã đăng nhập thành công, chuyển hướng ngay lập tức (không cần kiểm tra role ở đây)
+        if (isset($_SESSION['admin_id'])) { 
+            $this->redirectToDashboard(); 
+        }
+        
+        // 2. Kiểm tra cookie token
+        if (isset($_COOKIE[$this->cookie_name])) {
+            $token = $_COOKIE[$this->cookie_name]; 
+            $token_hash = hash('sha256', $token);
+            
+            // Tìm người dùng trong DB bằng Token Hash
+            if ($this->loginModel->findByRememberToken($token_hash)) {
+                
+                // Lấy role_id từ Model sau khi tìm thấy
+                $role_id = $this->loginModel->getIdChucVu(); 
+                
+                // ⭐ KIỂM TRA QUYỀN TẠI ĐÂY: Chỉ Admin (Role ID = 2) mới được phép tiếp tục
+                if ($role_id != 2) {
+                    $this->clearRememberMeCookie(); // Xóa cookie không có quyền
+                    $_SESSION['login_error'] = "Tài khoản không có quyền truy cập Admin.";
+                    return; // Dừng lại, không chuyển hướng
+                }
+
+                // Đăng nhập thành công qua cookie: Thiết lập Session
+                $_SESSION['admin_id'] = $this->loginModel->getStaffId(); 
+                $_SESSION['hoten'] = $this->loginModel->getHoTen(); 
+                $_SESSION['role_id'] = $role_id;
+                
+                // Cập nhật token mới (Token Rotation)
+                $this->setRememberMeCookie(true, $this->loginModel->getStaffId());
+                
+                // Chuyển hướng đến trang Admin
+                $this->redirectToDashboard();
+            } else {
+                // Token không hợp lệ/hết hạn => Xóa cookie
+                $this->clearRememberMeCookie();
+            }
+        }
+    }
+    
+    /**
+     * Tạo hoặc Xóa cookie Remember Me
+     */
+    private function setRememberMeCookie(bool $should_set, $staff_id)
+    {
+        // Thiết lập cookie trên toàn bộ trang Admin
+        $path = '/Webbanhang/Admin/'; 
+        $domain = '';
+        $secure = false; 
+        $httponly = true;
+        
+        if ($should_set) {
+            $expiry_time = time() + (30 * 24 * 3600); // 30 ngày
+            
+            // 1. Tạo Token gốc, mã hóa, lưu hash vào DB và trả về token gốc
+            $token = $this->loginModel->createRememberToken($staff_id); 
+            
+            if ($token) {
+                // 2. Đặt cookie (lưu $token GỐC)
+                setcookie($this->cookie_name, $token, $expiry_time, $path, $domain, $secure, $httponly);
+            }
+            
+        } else {
+            // Xóa cookie
+            $this->clearRememberMeCookie();
+            
+            // Xóa token khỏi DB
+            $this->loginModel->clearRememberToken($staff_id); 
+        }
+    }
+    
+    // Hàm xóa cookie
+    private function clearRememberMeCookie()
+    {
+        $path = '/Webbanhang/Admin/'; 
+        $domain = '';
+        $secure = false; 
+        $httponly = true;
+        setcookie($this->cookie_name, '', time() - 3600, $path, $domain, $secure, $httponly);
+    }
+
+    /**
+     * Hàm xử lý chung: GET/POST
+     */
+    public function handleRequest()
+    {
+        // Nếu đã đăng nhập thành công, chuyển hướng đến trang chủ
+        if (isset($_SESSION['admin_id'])) { 
+            $this->redirectToDashboard();
+        }
+        
+        $login_error = "";
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->processLogin();
+        } else {
+            // Lấy lỗi từ session (nếu có)
+            if (isset($_SESSION['login_error'])) {
+                $login_error = $_SESSION['login_error'];
+                unset($_SESSION['login_error']);
+            }
+
+            $this->loadView($login_error);
+        }
+    }
+
+    /**
+     * Xử lý đăng nhập
+     */
+    private function processLogin()
+    {
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $remember_me = isset($_POST['remember_me']); 
+
+        // Gán giá trị vào model
+        $this->loginModel->setEmail($email);
+
+        // Tìm người dùng theo email (chỉ tìm tài khoản ACTIVE)
+        $found = $this->loginModel->findActiveByEmail();
+
+        if ($found) {
+            $staff_id = $this->loginModel->getStaffId();
+            $hashedPassword = $this->loginModel->getMatKhau();
+            $role_id = $this->loginModel->getIdChucVu(); 
+
+            // ⭐ KIỂM TRA QUYỀN TRUY CẬP NGAY SAU KHI TÌM THẤY TÀI KHOẢN
+            if ($role_id != 2) {
+                $_SESSION['login_error'] = "Tài khoản của bạn không phải là Admin.";
+                header("Location: {$this->admin_root}view/Entry.php");
+                exit();
+            }
+
+            // So sánh mật khẩu
+            if (password_verify($password, $hashedPassword)) {
+                // Đăng nhập thành công
+                
+                $_SESSION['admin_id'] = $staff_id; 
+                $_SESSION['hoten'] = $this->loginModel->getHoTen(); 
+                $_SESSION['role_id'] = $role_id; 
+                
+                // Xử lý Remember Me
+                $this->setRememberMeCookie($remember_me, $staff_id);
+
+                // Chuyển hướng đến trang Admin
+                $this->redirectToDashboard();
+            }
+        }
+
+        // Nếu sai thông tin đăng nhập hoặc sai mật khẩu
+        $_SESSION['login_error'] = "Tên đăng nhập hoặc mật khẩu không đúng.";
+        header("Location: {$this->admin_root}view/Entry.php");
+        exit();
+    }
+
+    /**
+     * Tải view Login
+     */
+    private function loadView($login_error)
+    {
+        $viewPath = __DIR__ . '/../view/Login.php'; 
+
+        if (file_exists($viewPath)) {
+            require_once $viewPath;
+        } else {
+            die("Không tìm thấy View: " . $viewPath);
+        }
     }
 }

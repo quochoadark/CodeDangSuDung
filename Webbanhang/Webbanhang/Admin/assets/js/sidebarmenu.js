@@ -5,90 +5,73 @@ Author: Wrappixel
 File: js
 */
 // ==============================================================
-// Auto select left navbar
+// Auto select left navbar và xử lý toggle menu
 // ==============================================================
 $(function () {
   "use strict";
-  var url = window.location + "";
+
+  // --- Phần Tự động chọn (Auto select) ---
+  var url = window.location.href;
+  // Xóa protocol và host để so sánh URL tương đối, phòng trường hợp menu dùng URL tương đối
   var path = url.replace(
     window.location.protocol + "//" + window.location.host + "/",
     ""
   );
+
+  // Sử dụng jQuery selector để tìm thẻ <a> có href khớp với URL hiện tại hoặc path
   var element = $("ul#sidebarnav a").filter(function () {
-    return this.href === url || this.href === path; // || url.href.indexOf(this.href) === 0;
+    return this.href === url || this.href === path;
   });
 
-  function findMatchingElement() {
-    var currentUrl = window.location.href;
-    var anchors = document.querySelectorAll("#sidebarnav a");
-    for (var i = 0; i < anchors.length; i++) {
-      if (anchors[i].href === currentUrl) {
-        return anchors[i];
-      }
-    }
+  // Thêm class 'active', 'in' và 'selected' cho menu cha
+  if (element.length) {
+    element.addClass("active"); // Thẻ <a> được chọn
 
-    return null; // Return null if no matching element is found
-  }
-  var elements = findMatchingElement();
+    // Thêm class 'in' cho menu con (ul) chứa thẻ <a> được chọn
+    element.closest("ul").addClass("in");
 
-  // Do something with the matching element
-  if (elements) {
-    elements.classList.add("active");
+    // Thêm class 'selected' cho thẻ <li> cha của menu cha (ul) vừa được mở
+    element.closest("ul").parent().addClass("selected");
+
+    // Thêm class 'active' cho thẻ <a> cha của menu cha (ul) vừa được mở
+    element.closest("ul").parent().children("a").addClass("active");
   }
 
-  document
-    .querySelectorAll("ul#sidebarnav ul li a.active")
-    .forEach(function (link) {
-      link.closest("ul").classList.add("in");
-      link.closest("ul").parentElement.classList.add("selected");
-    });
-
-  document.querySelectorAll("#sidebarnav li").forEach(function (li) {
-    const isActive = li.classList.contains("selected");
-    if (isActive) {
-      const anchor = li.querySelector("a");
-      if (anchor) {
-        anchor.classList.add("active");
-      }
-    }
-  });
-
+  // --- Phần Xử lý sự kiện click để bung/thu gọn menu ---
   document.querySelectorAll("#sidebarnav a").forEach(function (link) {
     link.addEventListener("click", function (e) {
+      const submenu = this.nextElementSibling;
+
+      // 1. KIỂM TRA ĐIỀU KIỆN: Nếu có menu con (ul) thì CHẶN hành vi mặc định
+      if (submenu && submenu.tagName === 'UL') {
+        e.preventDefault();
+      }
+
       const isActive = this.classList.contains("active");
       const parentUl = this.closest("ul");
-      if (!isActive) {
-        // hide any open menus and remove all other classes
-        parentUl.querySelectorAll("ul").forEach(function (submenu) {
-          submenu.classList.remove("in");
-        });
-        parentUl.querySelectorAll("a").forEach(function (navLink) {
-          navLink.classList.remove("active");
-        });
 
-        // open our new menu and add the open class
-        const submenu = this.nextElementSibling;
-        if (submenu) {
+      // Xử lý logic bung/thu gọn menu con
+      if (submenu && submenu.tagName === 'UL') {
+        if (!isActive) {
+          // Thu gọn tất cả menu con khác cùng cấp
+          parentUl.querySelectorAll("ul").forEach(function (otherSubmenu) {
+            otherSubmenu.classList.remove("in");
+          });
+          parentUl.querySelectorAll("a").forEach(function (navLink) {
+            navLink.classList.remove("active");
+          });
+
+          // Mở menu con mới
           submenu.classList.add("in");
-        }
-
-        this.classList.add("active");
-      } else {
-        this.classList.remove("active");
-        parentUl.classList.remove("active");
-        const submenu = this.nextElementSibling;
-        if (submenu) {
+          this.classList.add("active");
+        } else {
+          // Đóng menu con
+          this.classList.remove("active");
           submenu.classList.remove("in");
         }
       }
     });
   });
-
 });
 
-// Icon thư mục
-$(document).ready(function () {
-  $('#toggleSidebar').on('click', function () {
-    $('#sidebar-col').toggleClass('collapsed');
-  });
-});
+

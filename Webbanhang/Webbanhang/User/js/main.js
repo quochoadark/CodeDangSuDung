@@ -112,23 +112,24 @@
     });
 
 
-    // Database Video
+    // Database Video (ĐÃ SỬA LỖI CÚ PHÁP)
     $(document).ready(function () {
         var $videoSrc;
         $('.btn-play').click(function () {
             $videoSrc = $(this).data("src");
         });
-        console.log($videoSrc);
+        // Xóa dòng console.log($videoSrc); gây lỗi 'undefined'
 
-        $('#videoDatabase').on('shown.bs.Database', function (e) {
+        // Sửa 'shown.bs.Database' thành 'shown.bs.modal'
+        $('#videoDatabase').on('shown.bs.modal', function (e) {
             $("#video").attr('src', $videoSrc + "?autoplay=1&amp;modestbranding=1&amp;showinfo=0");
         })
 
-        $('#videoDatabase').on('hide.bs.Database', function (e) {
+        // Sửa 'hide.bs.Database' thành 'hide.bs.modal'
+        $('#videoDatabase').on('hide.bs.modal', function (e) {
             $("#video").attr('src', $videoSrc);
         })
     });
-
 
 
     // Product Quantity
